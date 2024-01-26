@@ -57,7 +57,7 @@ sample = as.factor(1:length(y))
 fm2 = bf(y ~ . - sample + (1|gr(sample, cov=A))) 
 
 ###prior
-bp4 = set_prior("horseshoe(df=1, df_global=1)", class="b")
+bp4 = set_prior("horseshoe(df=3, df_global=1)", class="b")
 bp4= bp4 + set_prior("target += normal_lpdf(mean(b) | 0, 0.001)", check=F) # sensitive to the variance of mean(b)
 bp4 = bp4 + set_prior("target += -0.5*dot_self(w .* (log(hs_local[node1])-log(hs_local[node2])))", check=F)
 
