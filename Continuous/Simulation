@@ -1,1 +1,49 @@
+library(MASS)
+library(phyloseq)
+  n=400
+m=100
+snr=0.2
+  p=m
+  np=snr*m
+gammatrue=rep(1,p)
+true_index=seq(18,28,by=2)
+ b1=c(2.0800,-1.1600,-2.1200)
+  b2=c(1.5000,-0.8600,0.56)
+b=rep(0,p)
+index1=seq(1,length(true_index),by=2)
+index2=seq(2,length(true_index),by=2)
+b[true_index[index1]]=b1
+b[true_index[index2]]=b2
+b[(m-np):(m-1)]=rnorm(np,0,0.2)
+b[m]=-sum(b[1:(p-1)])
+sigmaX=1
+#sigma=1/snr*mean(abs(c(b1,b2)))
+xcor=matrix(0,p,p)
+for (i in seq(18,26,by=2)){
+  for (j in seq(i+2,28,by=2)){
+    xcor[i,j]=0.75-0.015*abs(i-j)
+  }
+}
 
+for (i in (m-np):(m-1)){
+  for (j in (m-np+1):(m)){
+    xcor[i,j]=0.25-0.00015*abs(i-j)
+  }
+}
+
+Xcor=xcor+t(xcor)+diag(p)
+theta=rep(0,p)
+theta[true_index]=log(0.5*p)
+beta=gammatrue*b
+s=diag(p)*sigmaX
+X=mvrnorm(n,theta,s%*%Xcor%*%s)
+#s=diag(p)*sigmaX
+ # X=mvrnorm(n,theta,s)
+x=exp(X)
+x1 = x/rowSums(x)
+x2=log(x1)
+epsilon=rnorm(n,0,1.6)
+y=x2%*%beta+epsilon
+dat=data.frame(y,x2)
+
+RP = beta!=0
