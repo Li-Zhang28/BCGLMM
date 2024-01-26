@@ -71,14 +71,6 @@ ln = length(node1)
 f5 = brm(fm2, data=d1, data2=list(A=A), family=gaussian(), prior=bp4, stanvars=stanvars, control = list(adapt_delta = 0.99,max_treedepth= 18), chains=4, iter=4000)
 samples5 = fixef(f5)
 samples5=samples5[-1,]
-PP5 = (samples5[,4]<0)|(samples5[,3]>0)
-FP5 = sum(PP5=="TRUE"&RP=="FALSE")
-TP5= sum(PP5=="TRUE"&RP=="TRUE")
-FN5 = sum(PP5=="FALSE"&RP=="TRUE")
-TN5 = sum(PP5=="FALSE"&RP=="FALSE")
-TPR5=TP5/(TP5 +FN5)
-FPR5=FP5/(FP5 +TN5)
-FDR5=FP5/(FP5+TP5)
 
-mse5=sum((samples5[,1]-beta)^2)/p
-mse5
+ploo = loo_predict(f5)
+  a5=measure.glm(y, ploo,family = gaussian())
