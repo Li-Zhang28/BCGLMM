@@ -1,1 +1,92 @@
+RP = beta!=0
 
+####method 5
+library(brms)
+library(BhGLM)
+library(rstan)
+rstan_options(auto_write = TRUE)
+dist = c("bray", "jaccard", "jsd", "unifrac", "wunifrac", "dpcoa")
+m = dist[1]
+otu=otu_table(x1,taxa_are_rows = F)
+dis.taxa = distance(otu, method=m, type="taxa") 
+dis.taxa = as.matrix(dis.taxa); dim(dis.taxa)
+
+simi.mat <- function(dis.mat)
+{
+  n <- ncol(dis.mat)
+  D2 <- dis.mat^2
+  I <- diag(1, n)
+  II <- array(1, c(n,n))
+  K <- -0.5 * (I - II/n) %*% D2 %*% (I - II/n)
+  # to ensure a positive semi-definite matrix
+  # method 1
+  ev <- eigen(K)
+  v <- ev$vectors
+  e <- abs(ev$values)
+ e=e+0.00000002
+  K <- v %*% diag(e) %*% t(v)
+  K
+}
+
+K.taxa = simi.mat(dis.taxa); dim(K.taxa)
+
+taxa = as.numeric(K.taxa)
+node1 = node2 = w = NULL
+for (i in 1:(ncol(K.taxa)-1))
+  for (j in (i+1):ncol(K.taxa))
+  {
+    if(abs(K.taxa[i,j]) > 0.050) #quantile(abs(taxa))[3])
+    {
+      node1 = c(node1,i);
+      node2 = c(node2,j);
+      w = c(w, K.taxa[i,j])
+    }
+  }
+w = sqrt(abs(w)); length(w)
+
+####
+dis.sample = distance(otu, method=m, type="sample") 
+dis.sample = as.matrix(dis.sample); dim(dis.sample)
+
+# construct similarity matrix from distance matrix
+# see Zhao et al. (2015)
+K.sample = simi.mat(dis.sample); dim(K.sample)
+
+sample = as.factor(1:length(y))
+  A = K.sample
+  rownames(A) = sample
+  colnames(A) = sample
+  d1 = data.frame(y, x2, sample)
+
+#####with structure no random effect
+
+bp4 = set_prior("horseshoe(df=1, df_global=1)", class="b")
+bp4= bp4 + set_prior("target += normal_lpdf(mean(b) | 0, 0.001)", check=F) # sensitive to the variance of mean(b)
+bp4 = bp4 + set_prior("target += -0.5*dot_self(w .* (log(hs_local[node1])-log(hs_local[node2])))", check=F)
+
+ ln = length(node1)
+ stanvars =stanvar(x=ln, name="ln", scode="int ln;", block="data") +
+  stanvar(x=node1, name="node1", scode="int node1[ln];", block="data") +
+  stanvar(x=node2, name="node2", scode="int node2[ln];", block="data") +
+  stanvar(x=w, name="w", scode="vector[ln] w;", block="data") 
+
+#####with structure with random effect
+fm2 = bf(y ~ . - sample + (1|gr(sample, cov=A))) 
+
+f5 = brm(fm2, data=d1, data2=list(A=A), family=bernoulli, prior=bp4, stanvars=stanvars, control = list(adapt_delta = 0.999,max_treedepth= 20), chains=4, iter=4000)
+samples5 = fixef(f5)
+samples5=samples5[-1,]
+PP5 = (samples5[,4]<0)|(samples5[,3]>0)
+FP5 = sum(PP5=="TRUE"&RP=="FALSE")
+TP5= sum(PP5=="TRUE"&RP=="TRUE")
+FN5 = sum(PP5=="FALSE"&RP=="TRUE")
+TN5 = sum(PP5=="FALSE"&RP=="FALSE")
+TPR5=TP5/(TP5 +FN5)
+FPR5=FP5/(FP5 +TN5)
+FDR5=FP5/(FP5+TP5)
+
+mse5=sum((samples5[,1]-beta)^2)/p
+mse5
+
+ploo = loo_predict(f5)
+  a5=measure.glm(y, ploo, family="binomial")
