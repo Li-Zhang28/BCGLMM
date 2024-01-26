@@ -2,7 +2,7 @@ library(MASS)
 library(phyloseq)
   n=400
 m=100
-snr=0.2
+snr=0.7
   p=m
   np=snr*m
 gammatrue=rep(1,p)
